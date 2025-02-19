@@ -48,5 +48,8 @@ pub fn main() !void {
         }
 
         dbg.print("Text: {s}\nLen: {d}\n", .{ args[2], try utf8.charLength(args[2]) });
+    } else {
+        dbg.dump(args);
+        dbg.dump([_]u8{ 0, 1, 2, 3 });
     }
 }

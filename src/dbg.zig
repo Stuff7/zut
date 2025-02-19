@@ -1,5 +1,6 @@
 const std = @import("std");
 const utf8 = @import("utf8.zig");
+const SliceChild = @import("zut.zig").SliceChild;
 
 pub fn usage(name: []const u8, comptime options: anytype) void {
     const fmt_options = comptime ret: {
@@ -114,6 +115,14 @@ pub fn dumpArray(data: anytype) void {
 pub fn dumpArrayIndent(data: anytype, comptime indent: usize) void {
     const T = @TypeOf(data);
     const name = @typeName(T);
+
+    const C = SliceChild(T).?;
+    const child_info = @typeInfo(C);
+
+    if (child_info == .int and child_info.int.bits == 8 and std.unicode.utf8ValidateSlice(data[0..])) {
+        std.debug.print(utf8.clr("214") ++ "{s}" ++ utf8.esc("0"), .{data});
+        return;
+    }
 
     if (@typeInfo(T) == .pointer) {
         std.debug.print(utf8.esc("1") ++ utf8.clr("211") ++ "[{}{s}[\n" ++ utf8.esc("0"), .{ data.len, name[1..] });
