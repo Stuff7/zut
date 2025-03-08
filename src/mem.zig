@@ -28,6 +28,11 @@ pub fn mask(flag: anytype, bitmask: anytype) bool {
     return (flag & bitmask) == bitmask;
 }
 
+fn sliceContainsPtr(T: type, container: []const T, ptr: [*]const T) bool {
+    return @intFromPtr(ptr) >= @intFromPtr(container.ptr) and
+        @intFromPtr(ptr) < (@intFromPtr(container.ptr) + container.len * @sizeOf(T));
+}
+
 pub fn packedSize(s: type) usize {
     const fields = @typeInfo(s).@"struct".fields;
     var size = 0;

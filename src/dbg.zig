@@ -54,6 +54,10 @@ pub fn print(comptime f: []const u8, args: anytype) void {
     stdout.print(utf8.clr("230") ++ utf8.esc("1") ++ f ++ utf8.esc("0") ++ "\n", args) catch unreachable;
 }
 
+pub fn stdErrLn(comptime f: []const u8, args: anytype) void {
+    stderr.print(utf8.clr("230") ++ utf8.esc("1") ++ f ++ utf8.esc("0") ++ "\n", args) catch unreachable;
+}
+
 pub fn warn(comptime f: []const u8, args: anytype) void {
     stderr.print(
         utf8.clr("220") ++ utf8.esc("1") ++ "Warning: " ++ utf8.esc("0") ++ utf8.clr("229") ++ f ++ utf8.esc("0") ++ "\n",
