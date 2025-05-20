@@ -12,8 +12,8 @@ pub fn SliceChild(T: type) ?type {
     return switch (info) {
         .array => |a| a.child,
         .pointer => |p| switch (p.size) {
-            .One => SliceChild(p.child),
-            .Slice => p.child,
+            .one => SliceChild(p.child),
+            .slice => p.child,
             else => null,
         },
         else => null,

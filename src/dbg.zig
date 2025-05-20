@@ -83,7 +83,7 @@ pub fn dumpIndent(v: anytype, comptime indent: usize) void {
         .@"struct" => {
             dumpStructIndent(v, indent);
         },
-        .pointer => |p| if (p.size != .Slice) {
+        .pointer => |p| if (p.size != .slice) {
             std.debug.print(utf8.esc("1") ++ utf8.clr("147") ++ "*{0*}" ++ utf8.esc("0"), .{v});
         } else {
             dumpArrayIndent(v, indent);
