@@ -105,10 +105,6 @@ pub fn isWideChar(codepoint: u21) bool {
     // zig fmt: on
 }
 
-pub fn esc(comptime v: []const u8) []const u8 {
-    return "\x1b[" ++ v ++ "m";
-}
-
-pub fn clr(comptime id: []const u8) []const u8 {
-    return "\x1b[38;5;" ++ id ++ "m";
+pub fn ansi(comptime txt: []const u8, comptime styles: []const u8) []const u8 {
+    return "\x1b[" ++ styles ++ "m" ++ txt ++ "\x1b[0m";
 }

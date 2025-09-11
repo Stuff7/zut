@@ -1,6 +1,13 @@
 const std = @import("std");
 const utf8 = @import("utf8.zig");
+
 const SliceChild = @import("zut.zig").SliceChild;
+
+const ansi = utf8.ansi;
+const print = std.debug.print;
+
+const MAX_SPACES = 64;
+const SPACES = [_]u8{' '} ** MAX_SPACES;
 
 pub fn usage(name: []const u8, comptime options: anytype) void {
     const fmt_options = comptime ret: {
@@ -13,7 +20,7 @@ pub fn usage(name: []const u8, comptime options: anytype) void {
             var r: [len:0]u8 = undefined;
 
             while (i + 1 < options.len) : (i += 2) {
-                const s = "  {2s}{5s}" ++ options[i] ++ "{1s}\t{4s}" ++ options[i + 1] ++ "\n";
+                const s = ansi(options[i], "1;38;5;225") ++ "\t" ++ ansi(options[i + 1] ++ "\n", "38;5;195");
                 switch (step) {
                     .calc_len => len += s.len,
                     .build_str => {
@@ -29,62 +36,34 @@ pub fn usage(name: []const u8, comptime options: anytype) void {
         }
     };
 
-    std.debug.print(
-        "{2s}{3s}Usage:{1s} {6s}{0s}\n" ++ fmt_options ++ "{1s}\n",
-        .{ name, utf8.esc("0"), utf8.esc("1"), utf8.clr("220"), utf8.clr("195"), utf8.clr("225"), utf8.clr("156") },
-    );
+    std.debug.print(ansi("Usage:", "1;38;5;220") ++ ansi(" {s}\n" ++ fmt_options ++ "\n", "38;5;156"), .{name});
 }
 
-pub fn rtAssert(assertion: bool, err: anyerror) !void {
-    if (!assertion) {
-        return err;
-    }
-}
-
-pub fn rtAssertFmt(assertion: bool, comptime f: []const u8, args: anytype) !void {
-    if (!assertion) {
-        errMsg(f, args);
-        return error.AssertionFail;
-    }
-}
-
-pub const stdout = std.io.getStdOut().writer();
-pub const stderr = std.io.getStdErr().writer();
-pub fn print(comptime f: []const u8, args: anytype) void {
-    stdout.print(utf8.clr("230") ++ utf8.esc("1") ++ f ++ utf8.esc("0") ++ "\n", args) catch unreachable;
-}
-
-pub fn stdErrLn(comptime f: []const u8, args: anytype) void {
-    stderr.print(utf8.clr("230") ++ utf8.esc("1") ++ f ++ utf8.esc("0") ++ "\n", args) catch unreachable;
+pub fn info(comptime f: []const u8, args: anytype) void {
+    print(ansi(f, "1;38;5;230") ++ "\n", args);
 }
 
 pub fn warn(comptime f: []const u8, args: anytype) void {
-    stderr.print(
-        utf8.clr("220") ++ utf8.esc("1") ++ "Warning: " ++ utf8.esc("0") ++ utf8.clr("229") ++ f ++ utf8.esc("0") ++ "\n",
-        args,
-    ) catch unreachable;
+    print(ansi("Warning: ", "1;38;5;220") ++ ansi(f ++ "\n", "38;5;229"), args);
 }
 
-pub fn errMsg(comptime f: []const u8, args: anytype) void {
-    stderr.print(
-        utf8.clr("210") ++ utf8.esc("1") ++ "Error: " ++ utf8.esc("0") ++ utf8.clr("217") ++ f ++ utf8.esc("0") ++ "\n",
-        args,
-    ) catch unreachable;
+pub fn err(comptime f: []const u8, args: anytype) void {
+    print(ansi("Error: ", "1;38;5;210") ++ ansi(f ++ "\n", "38;5;217"), args);
 }
 
 pub fn dump(v: anytype) void {
     dumpIndent(v, 2);
 }
 
-pub fn dumpIndent(v: anytype, comptime indent: usize) void {
+pub fn dumpIndent(v: anytype, indent: usize) void {
     const T = @TypeOf(v);
-    std.debug.print("[>{}:{}]", .{ @alignOf(T), @sizeOf(T) });
+    print("[>{}:{}]", .{ @alignOf(T), @sizeOf(T) });
     switch (@typeInfo(T)) {
         .@"struct" => {
             dumpStructIndent(v, indent);
         },
         .pointer => |p| if (p.size != .slice) {
-            std.debug.print(utf8.esc("1") ++ utf8.clr("147") ++ "*{0*}" ++ utf8.esc("0"), .{v});
+            print(ansi("*{0*}", "1;38;5;147"), .{v});
         } else {
             dumpArrayIndent(v, indent);
         },
@@ -98,25 +77,29 @@ pub fn dumpIndent(v: anytype, comptime indent: usize) void {
                 }
             }
         },
-        .int => std.debug.print(intFmt(T), .{v}),
-        .float => std.debug.print(utf8.clr("194") ++ "{d:.4}" ++ utf8.esc("0"), .{v}),
-        .optional => if (v != null) dumpIndent(v.?, indent + 2) else std.debug.print(utf8.clr("250") ++ "null" ++ utf8.esc("0"), .{}),
+        .int => print(intFmt(T), .{v}),
+        .float => print(ansi("{d:.4}", "38;5;194"), .{v}),
+        .optional => if (v != null) dumpIndent(v.?, indent + 2) else print(ansi("null", "38;5;250"), .{}),
         else => if (T == bool) {
             if (v) {
-                std.debug.print(utf8.clr("118") ++ "{}" ++ utf8.esc("0"), .{v});
+                print(ansi("{}", "38;5;118"), .{v});
             } else {
-                std.debug.print(utf8.clr("202") ++ "{}" ++ utf8.esc("0"), .{v});
+                print(ansi("{}", "38;5;202"), .{v});
             }
-        } else std.debug.print(utf8.clr("245") ++ "[{s}]{any}" ++ utf8.esc("0"), .{ @typeName(T), v }),
+        } else print(ansi("[{s}]{any}", "38;5;245"), .{ @typeName(T), v }),
     }
-    std.debug.print("\n", .{});
+    print("\n", .{});
 }
 
-pub fn dumpArray(data: anytype) void {
+fn pad(indent: usize) []const u8 {
+    return SPACES[0..@min(indent, MAX_SPACES)];
+}
+
+fn dumpArray(data: anytype) void {
     dumpArrayIndent(data, 2);
 }
 
-pub fn dumpArrayIndent(data: anytype, comptime indent: usize) void {
+fn dumpArrayIndent(data: anytype, indent: usize) void {
     const T = @TypeOf(data);
     const name = @typeName(T);
 
@@ -124,50 +107,50 @@ pub fn dumpArrayIndent(data: anytype, comptime indent: usize) void {
     const child_info = @typeInfo(C);
 
     if (child_info == .int and child_info.int.bits == 8 and std.unicode.utf8ValidateSlice(data[0..])) {
-        std.debug.print(utf8.clr("214") ++ "{s}" ++ utf8.esc("0"), .{data});
+        print(ansi("{s}", "38;5;214"), .{data});
         return;
     }
 
     if (@typeInfo(T) == .pointer) {
-        std.debug.print(utf8.esc("1") ++ utf8.clr("211") ++ "[{}{s}[\n" ++ utf8.esc("0"), .{ data.len, name[1..] });
+        print(ansi("[{}{s}[\n", "1;38;5;211"), .{ data.len, name[1..] });
     } else {
-        std.debug.print(utf8.esc("1") ++ utf8.clr("122") ++ "{s}[\n" ++ utf8.esc("0"), .{name});
+        print(ansi("{s}[\n", "1;38;5;122"), .{name});
     }
 
     const len: usize = if (data.len <= 10) data.len else @min(data.len, 5);
     for (0..len) |i| {
-        std.debug.print(" " ** indent ++ utf8.esc("1") ++ "{}: " ++ utf8.esc("0"), .{i});
+        print("{s}" ++ ansi("{}: ", "1"), .{ pad(indent), i });
         dumpIndent(data[i], indent + 2);
     }
 
     if (data.len > 10) {
-        std.debug.print("\n" ++ " " ** indent ++ utf8.esc("1") ++ "...{} more item/s\n\n" ++ utf8.esc("0"), .{data.len -| 10});
+        print("\n{s}" ++ ansi("...{} more item/s\n\n", "1"), .{ pad(indent), data.len - 10 });
         for (data.len - 5..data.len) |i| {
-            std.debug.print(" " ** indent ++ utf8.esc("1") ++ "{}: " ++ utf8.esc("0"), .{i});
+            print("{s}" ++ ansi("{}: ", "1"), .{ pad(indent), i });
             dumpIndent(data[i], indent + 2);
         }
     }
 
-    std.debug.print(" " ** (indent -| 2) ++ "]", .{});
+    print("{s}]", .{pad(indent - 2)});
 }
 
-pub fn intFmt(comptime T: type) []const u8 {
+fn intFmt(comptime T: type) []const u8 {
     const hexpad = std.fmt.comptimePrint("{d}", .{@min(@sizeOf(T) * 2, 4)});
-    return utf8.clr("194") ++ "{0}" ++ utf8.esc("0") ++ " [" ++ utf8.clr("192") ++ "0x{0X:0>" ++ hexpad ++ "}" ++ utf8.esc("0") ++ "]";
+    return ansi("{0}", "38;5;194") ++ " [" ++ ansi("0x{0X:0>" ++ hexpad ++ "}", "38;5;192") ++ "]";
 }
 
-pub fn dumpStruct(data: anytype) void {
+fn dumpStruct(data: anytype) void {
     dumpStructIndent(data, 2);
 }
 
-fn dumpStructIndent(data: anytype, comptime indent: usize) void {
+fn dumpStructIndent(data: anytype, indent: usize) void {
     const T = @TypeOf(data);
     const fields = @typeInfo(T).@"struct".fields;
 
-    std.debug.print(utf8.esc("1") ++ utf8.clr("122") ++ "{s}\n" ++ utf8.esc("0"), .{@typeName(T)});
+    print(ansi("{s}\n", "1;38;5;122"), .{@typeName(T)});
     inline for (fields) |field| {
         const v = @field(data, field.name);
-        std.debug.print(" " ** indent ++ utf8.clr("225") ++ "{s}: " ++ utf8.esc("0"), .{field.name});
+        print("{s}" ++ ansi("{s}: ", "38;5;225"), .{ pad(indent), field.name });
         dumpIndent(v, indent + 2);
     }
 }

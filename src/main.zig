@@ -35,11 +35,11 @@ pub fn main() !void {
         }
 
         if (std.mem.eql(u8, args[2], "log")) {
-            dbg.print("{s}", .{args[3]});
+            dbg.info("{s}", .{args[3]});
         } else if (std.mem.eql(u8, args[2], "warn")) {
             dbg.warn("{s}", .{args[3]});
         } else if (std.mem.eql(u8, args[2], "err")) {
-            dbg.errMsg("{s}", .{args[3]});
+            dbg.err("{s}", .{args[3]});
         }
     } else if (std.mem.eql(u8, args[1], "utf8")) {
         if (args.len < 3) {
@@ -47,7 +47,7 @@ pub fn main() !void {
             return;
         }
 
-        dbg.print("Text: {s}\nLen: {d}\n", .{ args[2], try utf8.charLength(args[2]) });
+        dbg.info("Text: {s}\nLen: {d}\n", .{ args[2], try utf8.charLength(args[2]) });
     } else {
         dbg.dump(args);
         dbg.dump([_]u8{ 0, 1, 2, 3 });
