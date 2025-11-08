@@ -118,7 +118,7 @@ pub fn visualStringLength(str: []const u8) !usize {
 }
 
 /// Given a **utf-8** character slice it returns it's *visual* length based on the **Unicode East Asian Width**
-fn charWidthFromSlice(slice: []u8) !usize {
+pub fn charWidthFromSlice(slice: []u8) !usize {
     const codepoint = try decodeCodepoint(slice);
     return if (isWideChar(codepoint)) 2 else 1;
 }
