@@ -105,6 +105,24 @@ pub fn isWideChar(codepoint: u21) bool {
     // zig fmt: on
 }
 
+/// Given a **utf-8** string it returns it's *visual* length based on the **Unicode East Asian Width** of each character
+pub fn visualStringLength(str: []const u8) !usize {
+    var it = (try std.unicode.Utf8View.init(str)).iterator();
+    var charlen: usize = 0;
+
+    while (it.nextCodepoint()) |c| {
+        charlen += if (isWideChar(c)) 2 else 1;
+    }
+
+    return charlen;
+}
+
+/// Given a **utf-8** character slice it returns it's *visual* length based on the **Unicode East Asian Width**
+fn charWidthFromSlice(slice: []u8) !usize {
+    const codepoint = try decodeCodepoint(slice);
+    return if (isWideChar(codepoint)) 2 else 1;
+}
+
 pub fn ansi(comptime txt: []const u8, comptime styles: []const u8) []const u8 {
     return "\x1b[" ++ styles ++ "m" ++ txt ++ "\x1b[0m";
 }
