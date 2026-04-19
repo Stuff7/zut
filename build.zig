@@ -27,7 +27,7 @@ pub fn build(b: *std.Build) void {
     const exe = b.addExecutable(.{ .name = bin_name, .root_module = main_module });
     b.installArtifact(exe);
 
-    const check = b.addExecutable(.{ .name = bin_name, .root_module = lib_module });
+    const check = b.addExecutable(.{ .name = "check", .root_module = main_module });
     const check_step = b.step("check", "Build for LSP Diagnostics");
     check_step.dependOn(&check.step);
 

@@ -1,5 +1,6 @@
 const std = @import("std");
 const utf8 = @import("utf8.zig");
+const zut = @import("zut.zig");
 
 const SliceChild = @import("zut.zig").SliceChild;
 
@@ -52,7 +53,7 @@ pub fn err(comptime f: []const u8, args: anytype) void {
 }
 
 pub fn dump(v: anytype) void {
-    dumpIndent(v, 2);
+    dumpIndent(v, 2, 0);
 }
 
 fn dumpInt(comptime T: type, v: T) void {
@@ -61,31 +62,38 @@ fn dumpInt(comptime T: type, v: T) void {
     print(ansi("{}", "38;5;194") ++ " [" ++ ansi("0x{X:0>" ++ hexpad ++ "}", "38;5;192") ++ "]", .{ v, @as(U, @bitCast(v)) });
 }
 
-pub fn dumpIndent(v: anytype, indent: usize) void {
+pub fn dumpIndent(v: anytype, indent: usize, total_indent: usize) void {
     const T = @TypeOf(v);
 
     const has_size = T != comptime_int and T != comptime_float;
+    print(ansi("{} ", "3;38;5;110"), .{T});
     if (has_size) {
-        print("[>{}:{}]", .{ @alignOf(T), @sizeOf(T) });
-    } else {
-        print("[>0:0]", .{});
+        print(ansi("{}B", "4;3;38;5;122"), .{@sizeOf(T)});
+        print(ansi("/{} ", "3;38;5;248"), .{@alignOf(T)});
+    }
+
+    defer print("\n", .{});
+
+    if (zut.isString(T)) {
+        print(ansi("{s}", "38;5;214"), .{v});
+        return;
     }
 
     switch (@typeInfo(T)) {
         .@"struct" => {
-            dumpStructIndent(v, indent);
+            dumpStructIndent(v, indent, total_indent + indent);
         },
         .pointer => |p| if (p.size != .slice) {
             print(ansi("*{0*}", "1;38;5;147"), .{v});
         } else {
-            dumpArrayIndent(v, indent);
+            dumpArrayIndent(v, indent, total_indent + indent);
         },
-        .array => dumpArrayIndent(v, indent),
+        .array => dumpArrayIndent(v, indent, total_indent + indent),
         .@"union" => |u| {
             const tag_name = @tagName(v);
             inline for (u.fields) |field| {
                 if (std.mem.eql(u8, tag_name, field.name)) {
-                    dumpIndent(@field(v, field.name), indent + 2);
+                    dumpIndent(@field(v, field.name), indent, total_indent + indent);
                     break;
                 }
             }
@@ -93,17 +101,17 @@ pub fn dumpIndent(v: anytype, indent: usize) void {
         .int => dumpInt(T, v),
         .comptime_int => dumpInt(i64, v),
         .float => print(ansi("{d:.4}", "38;5;194"), .{v}),
-        .comptime_float => print(ansi("{d:.4}", "38;5;194") ++ "\n", .{v}),
-        .optional => if (v != null) dumpIndent(v.?, indent + 2) else print(ansi("null", "38;5;250"), .{}),
+        .comptime_float => print(ansi("{d:.4}", "38;5;194"), .{v}),
+        .optional => if (v != null) dumpIndent(v.?, indent, total_indent + indent) else print(ansi("null", "38;5;250"), .{}),
+        .@"enum" => print(ansi("{}", "38;5;122"), .{v}),
         else => if (T == bool) {
             if (v) {
                 print(ansi("{}", "38;5;118"), .{v});
             } else {
                 print(ansi("{}", "38;5;202"), .{v});
             }
-        } else print(ansi("[{s}]{any}", "38;5;245"), .{ @typeName(T), v }),
+        } else print(ansi("[{}]{any}", "38;5;245"), .{ T, v }),
     }
-    print("\n", .{});
 }
 
 fn pad(indent: usize) []const u8 {
@@ -111,56 +119,42 @@ fn pad(indent: usize) []const u8 {
 }
 
 fn dumpArray(data: anytype) void {
-    dumpArrayIndent(data, 2);
+    dumpArrayIndent(data, 2, 0);
 }
 
-fn dumpArrayIndent(data: anytype, indent: usize) void {
-    const T = @TypeOf(data);
-    const name = @typeName(T);
-
-    const C = SliceChild(T).?;
-    const child_info = @typeInfo(C);
-
-    if (child_info == .int and child_info.int.bits == 8 and std.unicode.utf8ValidateSlice(data[0..])) {
-        print(ansi("{s}", "38;5;214"), .{data});
-        return;
-    }
-
-    if (@typeInfo(T) == .pointer) {
-        print(ansi("[{}{s}[\n", "1;38;5;211"), .{ data.len, name[1..] });
-    } else {
-        print(ansi("{s}[\n", "1;38;5;122"), .{name});
-    }
+fn dumpArrayIndent(data: anytype, indent: usize, total_indent: usize) void {
+    print("[\n", .{});
 
     const len: usize = if (data.len <= 10) data.len else @min(data.len, 5);
     for (0..len) |i| {
-        print("{s}" ++ ansi("{}: ", "1"), .{ pad(indent), i });
-        dumpIndent(data[i], indent + 2);
+        print("{s}" ++ ansi("{}: ", "1"), .{ pad(total_indent), i });
+        dumpIndent(data[i], indent, total_indent + indent);
     }
 
     if (data.len > 10) {
-        print("\n{s}" ++ ansi("...{} more item/s\n\n", "1"), .{ pad(indent), data.len - 10 });
+        print("\n{s}" ++ ansi("...{} more item/s\n\n", "1"), .{ pad(total_indent), data.len - 10 });
         for (data.len - 5..data.len) |i| {
-            print("{s}" ++ ansi("{}: ", "1"), .{ pad(indent), i });
-            dumpIndent(data[i], indent + 2);
+            print("{s}" ++ ansi("{}: ", "1"), .{ pad(total_indent), i });
+            dumpIndent(data[i], indent, total_indent);
         }
     }
 
-    print("{s}]", .{pad(indent - 2)});
+    print("{s}]", .{pad(total_indent -| indent)});
 }
 
 fn dumpStruct(data: anytype) void {
-    dumpStructIndent(data, 2);
+    dumpStructIndent(data, 2, 0);
 }
 
-fn dumpStructIndent(data: anytype, indent: usize) void {
+fn dumpStructIndent(data: anytype, indent: usize, total_indent: usize) void {
     const T = @TypeOf(data);
     const fields = @typeInfo(T).@"struct".fields;
 
-    print(ansi("{s}\n", "1;38;5;122"), .{@typeName(T)});
+    print("{{\n", .{});
     inline for (fields) |field| {
         const v = @field(data, field.name);
-        print("{s}" ++ ansi("{s}: ", "38;5;225"), .{ pad(indent), field.name });
-        dumpIndent(v, indent + 2);
+        print("{s}" ++ ansi("{s}: ", "1"), .{ pad(total_indent), field.name });
+        dumpIndent(v, indent, total_indent);
     }
+    print("{s}}}", .{pad(total_indent -| indent)});
 }
