@@ -50,6 +50,7 @@ pub inline fn isString(comptime T: type) bool {
 }
 
 test isString {
+    std.testing.refAllDecls(@This());
     try std.testing.expect(isString([]const u8) == true);
     try std.testing.expect(isString([]u8) == true);
     try std.testing.expect(isString([10]u8) == true);

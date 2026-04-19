@@ -4,52 +4,44 @@ const zut = @import("zut");
 const utf8 = zut.utf8;
 const dbg = zut.dbg;
 
-pub fn main() !void {
-    var gpa = std.heap.GeneralPurposeAllocator(.{}).init;
-    defer _ = gpa.deinit();
-    const allocator = gpa.allocator();
+pub fn main(init: std.process.Init) !void {
+    var args = init.minimal.args.iterate();
+    defer args.deinit();
 
-    const args = try std.process.argsAlloc(allocator);
-    defer std.process.argsFree(allocator, args);
-
-    if (args.len < 2) {
-        // zig fmt: off
-        dbg.usage(args[0], .{
-            "dbg  [options]",  "Run debug stuff",
-            "utf8 [options]",  "Run utf8 stuff",
+    const program = args.next() orelse return error.ArgMissingProgram;
+    const cmd = args.next() orelse {
+        dbg.usage(program, .{
+            "dbg  [options]", "Run debug stuff",
+            "utf8 [options]", "Run utf8 stuff",
         });
-        // zig fmt: on
         return;
-    }
+    };
 
-    if (std.mem.eql(u8, args[1], "dbg")) {
-        if (args.len < 3) {
-            // zig fmt: off
-          dbg.usage(args[1], .{
-            "log  <text>",  "Print a message",
-            "warn <text>", "Print a warning",
-            "err  <text>",  "Print an error",
-          });
-          // zig fmt: on
+    if (std.mem.eql(u8, cmd, "dbg")) {
+        const action = args.next() orelse {
+            dbg.usage(cmd, .{
+                "log  <text>", "Print a message",
+                "warn <text>", "Print a warning",
+                "err  <text>", "Print an error",
+            });
             return;
-        }
+        };
 
-        if (std.mem.eql(u8, args[2], "log")) {
-            dbg.info("{s}", .{args[3]});
-        } else if (std.mem.eql(u8, args[2], "warn")) {
-            dbg.warn("{s}", .{args[3]});
-        } else if (std.mem.eql(u8, args[2], "err")) {
-            dbg.err("{s}", .{args[3]});
+        if (std.mem.eql(u8, action, "log")) {
+            dbg.info("{s}", .{args.next() orelse ""});
+        } else if (std.mem.eql(u8, action, "warn")) {
+            dbg.warn("{s}", .{args.next() orelse ""});
+        } else if (std.mem.eql(u8, action, "err")) {
+            dbg.err("{s}", .{args.next() orelse ""});
         }
-    } else if (std.mem.eql(u8, args[1], "utf8")) {
-        if (args.len < 3) {
-            dbg.usage(args[1], .{ "<text>", "Sample text" });
+    } else if (std.mem.eql(u8, cmd, "utf8")) {
+        const action = args.next() orelse {
+            dbg.usage(cmd, .{ "<text>", "Sample text" });
             return;
-        }
+        };
 
-        dbg.info("Text: {s}\nLen: {d}\n", .{ args[2], try utf8.charLength(args[2]) });
+        dbg.info("Text: {s}\nLen: {d}\n", .{ action, try utf8.charLength(action) });
     } else {
-        dbg.dump(args);
-        dbg.dump([_]u8{ 0, 1, 2, 3 });
+        dbg.dump(try init.minimal.args.toSlice(init.arena.allocator()));
     }
 }

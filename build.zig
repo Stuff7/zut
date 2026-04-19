@@ -6,7 +6,7 @@ pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
-    const lib_module = b.addModule(NAME, .{ .root_source_file = b.path("src/zut.zig") });
+    const lib_module = b.addModule(NAME, .{ .root_source_file = b.path("src/zut.zig"), .target = target });
     const main_module = b.createModule(.{
         .root_source_file = b.path("src/main.zig"),
         .target = target,
@@ -24,36 +24,16 @@ pub fn build(b: *std.Build) void {
     var name_buf: [NAME.len + 4]u8 = undefined;
     const bin_name = std.fmt.bufPrint(@constCast(&name_buf), "{s}{s}", .{ NAME, suffix }) catch unreachable;
 
-    const exe = addBuild(b, main_module, bin_name, .exe);
+    const exe = b.addExecutable(.{ .name = bin_name, .root_module = main_module });
     b.installArtifact(exe);
 
-    const check = addBuild(b, main_module, bin_name, .exe);
+    const check = b.addExecutable(.{ .name = bin_name, .root_module = lib_module });
     const check_step = b.step("check", "Build for LSP Diagnostics");
     check_step.dependOn(&check.step);
 
-    const test_module = b.createModule(.{
-        .root_source_file = b.path("tests/utf8.zig"),
-        .target = target,
-        .optimize = optimize,
-    });
-    test_module.addImport("zut", lib_module);
-    const test_exe = addBuild(b, test_module, NAME ++ "-test", .tests);
-    const run_test = b.addRunArtifact(test_exe);
+    const mod_tests = b.addTest(.{ .name = NAME, .root_module = lib_module });
+    const run_mod_tests = b.addRunArtifact(mod_tests);
     const test_step = b.step("test", "Run tests");
-    test_step.dependOn(&run_test.step);
-    check_step.dependOn(&test_exe.step);
-}
-
-fn addBuild(
-    b: *std.Build,
-    main_module: *std.Build.Module,
-    bin_name: []const u8,
-    kind: enum { tests, exe },
-) *std.Build.Step.Compile {
-    const exe = if (kind == .tests)
-        b.addTest(.{ .name = bin_name, .root_module = main_module })
-    else
-        b.addExecutable(.{ .name = bin_name, .root_module = main_module });
-
-    return exe;
+    test_step.dependOn(&run_mod_tests.step);
+    check_step.dependOn(&run_mod_tests.step);
 }
