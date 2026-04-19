@@ -55,9 +55,22 @@ pub fn dump(v: anytype) void {
     dumpIndent(v, 2);
 }
 
+fn dumpInt(comptime T: type, v: T) void {
+    const U = std.meta.Int(.unsigned, @bitSizeOf(T));
+    const hexpad = std.fmt.comptimePrint("{d}", .{@min(@sizeOf(T) * 2, 4)});
+    print(ansi("{}", "38;5;194") ++ " [" ++ ansi("0x{X:0>" ++ hexpad ++ "}", "38;5;192") ++ "]", .{ v, @as(U, @bitCast(v)) });
+}
+
 pub fn dumpIndent(v: anytype, indent: usize) void {
     const T = @TypeOf(v);
-    print("[>{}:{}]", .{ @alignOf(T), @sizeOf(T) });
+
+    const has_size = T != comptime_int and T != comptime_float;
+    if (has_size) {
+        print("[>{}:{}]", .{ @alignOf(T), @sizeOf(T) });
+    } else {
+        print("[>0:0]", .{});
+    }
+
     switch (@typeInfo(T)) {
         .@"struct" => {
             dumpStructIndent(v, indent);
@@ -77,8 +90,10 @@ pub fn dumpIndent(v: anytype, indent: usize) void {
                 }
             }
         },
-        .int => print(intFmt(T), .{v}),
+        .int => dumpInt(T, v),
+        .comptime_int => dumpInt(i64, v),
         .float => print(ansi("{d:.4}", "38;5;194"), .{v}),
+        .comptime_float => print(ansi("{d:.4}", "38;5;194") ++ "\n", .{v}),
         .optional => if (v != null) dumpIndent(v.?, indent + 2) else print(ansi("null", "38;5;250"), .{}),
         else => if (T == bool) {
             if (v) {
@@ -132,11 +147,6 @@ fn dumpArrayIndent(data: anytype, indent: usize) void {
     }
 
     print("{s}]", .{pad(indent - 2)});
-}
-
-fn intFmt(comptime T: type) []const u8 {
-    const hexpad = std.fmt.comptimePrint("{d}", .{@min(@sizeOf(T) * 2, 4)});
-    return ansi("{0}", "38;5;194") ++ " [" ++ ansi("0x{0X:0>" ++ hexpad ++ "}", "38;5;192") ++ "]";
 }
 
 fn dumpStruct(data: anytype) void {
