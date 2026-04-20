@@ -65,11 +65,12 @@ fn dumpInt(comptime T: type, v: T) void {
 pub fn dumpIndent(v: anytype, indent: usize, total_indent: usize) void {
     const T = @TypeOf(v);
 
-    const has_size = T != comptime_int and T != comptime_float;
-    print(ansi("{} ", "3;38;5;110"), .{T});
+    const VT = if (T == type) v else T;
+    const has_size = VT != comptime_int and VT != comptime_float;
+    print(ansi("{} ", "3;38;5;110"), .{VT});
     if (has_size) {
-        print(ansi("{}B", "4;3;38;5;122"), .{@sizeOf(T)});
-        print(ansi("/{} ", "3;38;5;248"), .{@alignOf(T)});
+        print(ansi("{}B", "4;3;38;5;122"), .{@sizeOf(VT)});
+        print(ansi("/{} ", "3;38;5;248"), .{@alignOf(VT)});
     }
 
     defer print("\n", .{});
@@ -104,13 +105,15 @@ pub fn dumpIndent(v: anytype, indent: usize, total_indent: usize) void {
         .comptime_float => print(ansi("{d:.4}", "38;5;194"), .{v}),
         .optional => if (v != null) dumpIndent(v.?, indent, total_indent + indent) else print(ansi("null", "38;5;250"), .{}),
         .@"enum" => print(ansi("{}", "38;5;122"), .{v}),
-        else => if (T == bool) {
+        .bool => {
             if (v) {
                 print(ansi("{}", "38;5;118"), .{v});
             } else {
                 print(ansi("{}", "38;5;202"), .{v});
             }
-        } else print(ansi("[{}]{any}", "38;5;245"), .{ T, v }),
+        },
+        .type => if (@typeInfo(v) == .@"struct") dumpStructIndent(v, indent, total_indent + indent),
+        else => print(ansi("[{}]{any}", "38;5;245"), .{ T, v }),
     }
 }
 
@@ -148,12 +151,14 @@ fn dumpStruct(data: anytype) void {
 
 fn dumpStructIndent(data: anytype, indent: usize, total_indent: usize) void {
     const T = @TypeOf(data);
-    const fields = @typeInfo(T).@"struct".fields;
+    const is_type = T == type;
+    const VT = if (is_type) data else T;
+    const fields = @typeInfo(VT).@"struct".fields;
 
     print("{{\n", .{});
     inline for (fields) |field| {
-        const v = @field(data, field.name);
-        print("{s}" ++ ansi("{s}: ", "1"), .{ pad(total_indent), field.name });
+        const v = if (is_type) @FieldType(data, field.name) else @field(data, field.name);
+        print("{s}" ++ ansi(">{}|", "38;5;245") ++ ansi("{s}: ", "1"), .{ pad(total_indent), @offsetOf(VT, field.name), field.name });
         dumpIndent(v, indent, total_indent);
     }
     print("{s}}}", .{pad(total_indent -| indent)});
