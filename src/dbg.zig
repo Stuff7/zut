@@ -158,7 +158,11 @@ fn dumpStructIndent(data: anytype, indent: usize, total_indent: usize) void {
     print("{{\n", .{});
     inline for (fields) |field| {
         const v = if (is_type) @FieldType(data, field.name) else @field(data, field.name);
-        print("{s}" ++ ansi(">{}|", "38;5;245") ++ ansi("{s}: ", "1"), .{ pad(total_indent), @offsetOf(VT, field.name), field.name });
+        print("{s}" ++ ansi(">{}|", "38;5;245") ++ ansi("{s}: ", "1"), .{
+            pad(total_indent),
+            if (field.is_comptime) 0 else @offsetOf(VT, field.name),
+            field.name,
+        });
         dumpIndent(v, indent, total_indent);
     }
     print("{s}}}", .{pad(total_indent -| indent)});
