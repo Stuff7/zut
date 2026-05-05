@@ -8,7 +8,7 @@ const ansi = utf8.ansi;
 const print = std.debug.print;
 
 const MAX_SPACES = 64;
-const SPACES = [_]u8{' '} ** MAX_SPACES;
+const SPACES: [MAX_SPACES]u8 = @splat(' ');
 
 pub fn usage(name: []const u8, comptime options: anytype) void {
     const fmt_options = comptime ret: {

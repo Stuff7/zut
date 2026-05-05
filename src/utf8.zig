@@ -198,7 +198,7 @@ test "utf8.charLength" {
     try testing.expectError(error.Utf8ExpectedContinuation, charLength(&[_]u8{ 0x80, 0xC3, 0xF0, 0xFF })); // Multiple invalid bytes mixed
 
     // Valid, large-length string with a mix of UTF-8 characters
-    try testing.expectEqual(500, charLength("𐍈" ** 500)); // Large string of valid Unicode
+    try testing.expectEqual(500, charLength("𐍈"**500)); // Large string of valid Unicode
 
     // Check for large code points (invalid if encoded incorrectly)
     try testing.expectError(error.Utf8CodepointTooLarge, charLength(&[_]u8{ 0xF4, 0x90, 0x80, 0x80 })); // Invalid 4-byte code point (too large)
