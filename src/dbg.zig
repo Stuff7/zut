@@ -69,6 +69,8 @@ pub const DumpOptions = struct {
     dump_struct_field_sizes: bool = true,
     dump_struct_field_offsets: bool = true,
     dump_int_hex: bool = true,
+    /// Set to negative for no limit
+    max_array_items: isize = 10,
 
     pub fn shouldDumpType(self: @This()) bool {
         return switch (self.parsing_type) {
@@ -200,7 +202,8 @@ fn dumpArray(data: anytype) void {
 fn dumpArrayOpts(data: anytype, opts: DumpOptions) void {
     print("[\n", .{});
 
-    const len: usize = if (data.len <= 10) data.len else @min(data.len, 5);
+    const max: usize = if (opts.max_array_items < 0) std.math.maxInt(usize) else @intCast(opts.max_array_items);
+    const len: usize = if (data.len <= max) data.len else @min(data.len, max / 2);
     var o = opts;
     o.parsing_type = .array;
     for (0..len) |i| {
@@ -208,9 +211,9 @@ fn dumpArrayOpts(data: anytype, opts: DumpOptions) void {
         dumpOpts(data[i], o);
     }
 
-    if (data.len > 10) {
-        print("\n{s}" ++ ansi("...{} more item/s\n\n", "1"), .{ pad(o.total_indent), data.len - 10 });
-        for (data.len - 5..data.len) |i| {
+    if (data.len > max) {
+        print("\n{s}" ++ ansi("...{} more item/s\n\n", "1"), .{ pad(o.total_indent), data.len - max });
+        for (data.len - max / 2..data.len) |i| {
             print("{s}" ++ ansi("{}: ", "1"), .{ pad(o.total_indent), i });
             dumpOpts(data[i], o);
         }
