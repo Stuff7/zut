@@ -1,5 +1,11 @@
 const std = @import("std");
 
+pub fn repeat(T: type, comptime slice: []const T, comptime count: usize) []const T {
+    comptime var ret: []const T = &.{};
+    inline for (0..count) |_| ret = ret ++ slice;
+    return ret;
+}
+
 pub fn intCast(I: type, i: anytype) I {
     return @as(I, @intCast(i));
 }

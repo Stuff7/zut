@@ -1,4 +1,5 @@
 const std = @import("std");
+const mem = @import("mem.zig");
 
 pub fn isSpace(b: u8) bool {
     return b == ' ' or b == '\t' or b == '\n' or b == '\r';
@@ -118,7 +119,7 @@ pub fn visualStringLength(str: []const u8) !usize {
 }
 
 /// Given a **utf-8** character slice it returns it's *visual* length based on the **Unicode East Asian Width**
-pub fn charWidthFromSlice(slice: []u8) !usize {
+pub fn charWidthFromSlice(slice: []const u8) !usize {
     const codepoint = try decodeCodepoint(slice);
     return if (isWideChar(codepoint)) 2 else 1;
 }
@@ -198,7 +199,7 @@ test "utf8.charLength" {
     try testing.expectError(error.Utf8ExpectedContinuation, charLength(&[_]u8{ 0x80, 0xC3, 0xF0, 0xFF })); // Multiple invalid bytes mixed
 
     // Valid, large-length string with a mix of UTF-8 characters
-    try testing.expectEqual(500, charLength("𐍈"**500)); // Large string of valid Unicode
+    try testing.expectEqual(500, charLength(mem.repeat(u8, "𐍈", 500))); // Large string of valid Unicode
 
     // Check for large code points (invalid if encoded incorrectly)
     try testing.expectError(error.Utf8CodepointTooLarge, charLength(&[_]u8{ 0xF4, 0x90, 0x80, 0x80 })); // Invalid 4-byte code point (too large)
