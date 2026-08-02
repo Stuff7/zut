@@ -115,4 +115,5 @@ pub const TestStruct = struct {
     },
     raw: RawValue = .{ .i = 123 },
     payload: Payload = .{ .vec = .{ .x = 4, .y = 5, .z = 6 } },
+    invalid_utf8: []const u8 = "\xff\xfe\x00bad",
 };

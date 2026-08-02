@@ -130,13 +130,19 @@ pub fn dumpOpts(v: anytype, opts: DumpOptions) void {
 
     defer print("\n", .{});
 
+    var o = opts;
+    o.total_indent += o.indent;
     if (zut.isString(T)) {
-        print(ansi("\"{s}\"", "38;5;214"), .{v});
+        if (std.unicode.utf8ValidateSlice(v)) {
+            print(ansi("\"{s}\"", "38;5;214"), .{v});
+        } else {
+            print(ansi("|invalid utf8 bytes| ", "38;5;210") ++ "{{\n", .{});
+            printHex(v, 8, o.total_indent);
+            print("{s}}}", .{pad(o.total_indent -| o.indent)});
+        }
         return;
     }
 
-    var o = opts;
-    o.total_indent += o.indent;
     switch (@typeInfo(T)) {
         .@"struct" => dumpStructOpts(v, o),
         .pointer => |p| if (p.size != .slice) print(ansi("*{0*}", "1;38;5;147"), .{v}) else dumpArrayOpts(v, o),
