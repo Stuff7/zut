@@ -50,14 +50,14 @@ pub fn packedSize(s: type) usize {
     return size;
 }
 
-pub fn packedWrite(s: anytype, w: anytype) !void {
+pub fn packedWrite(s: anytype, w: *std.Io.Writer) !void {
     const T = @TypeOf(s);
     const fields = @typeInfo(T).@"struct".fields;
 
     inline for (fields) |field| {
         switch (@typeInfo(@FieldType(T, field.name))) {
             .array => _ = try w.write(std.mem.sliceAsBytes(&@field(s, field.name))),
-            .pointer => |f| if (f.size == .Slice) {
+            .pointer => |f| if (f.size == .slice) {
                 _ = try w.write(std.mem.sliceAsBytes(@field(s, field.name)));
             },
             else => _ = try w.write(std.mem.asBytes(&@field(s, field.name))),
@@ -65,7 +65,7 @@ pub fn packedWrite(s: anytype, w: anytype) !void {
     }
 }
 
-pub fn packedRead(T: type, r: anytype, stop_field_name: ?[]const u8) !T {
+pub fn packedRead(T: type, r: *std.Io.Reader, stop_field_name: ?[]const u8) !T {
     var self: T = undefined;
     const fields = @typeInfo(T).@"struct".fields;
 
@@ -75,9 +75,9 @@ pub fn packedRead(T: type, r: anytype, stop_field_name: ?[]const u8) !T {
         }
 
         if (@typeInfo(@FieldType(T, field.name)) == .array) {
-            _ = try r.read(std.mem.sliceAsBytes(&@field(self, field.name)));
+            _ = try r.readSliceAll(std.mem.sliceAsBytes(&@field(self, field.name)));
         } else {
-            _ = try r.read(std.mem.asBytes(&@field(self, field.name)));
+            _ = try r.readSliceAll(std.mem.asBytes(&@field(self, field.name)));
         }
     }
 
