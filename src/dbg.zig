@@ -1,11 +1,11 @@
 const std = @import("std");
 const utf8 = @import("utf8.zig");
 const zut = @import("zut.zig");
-
-const SliceChild = @import("zut.zig").SliceChild;
-
 const ansi = utf8.ansi;
 const print = std.debug.print;
+
+const Type = std.builtin.Type;
+const SliceChild = zut.SliceChild;
 
 const MAX_SPACES = 64;
 const SPACES: [MAX_SPACES]u8 = @splat(' ');
@@ -136,7 +136,7 @@ pub fn dumpOpts(v: anytype, opts: DumpOptions) void {
         if (std.unicode.utf8ValidateSlice(v)) {
             print(ansi("\"{s}\"", "38;5;214"), .{v});
         } else {
-            print(ansi("|invalid utf8 bytes| ", "38;5;210") ++ "{{\n", .{});
+            print("{{\n", .{});
             printHex(v, 8, o.total_indent);
             print("{s}}}", .{pad(o.total_indent -| o.indent)});
         }
@@ -171,9 +171,10 @@ fn dumpOptionalOpts(v: anytype, opts: DumpOptions) void {
     print(ansi("null", "38;5;250"), .{});
 }
 
-fn dumpUnionOpts(v: anytype, u: std.builtin.Type.Union, opts: DumpOptions) void {
+fn dumpUnionOpts(v: anytype, u: Type.Union, opts: DumpOptions) void {
     if (u.tag_type == null) {
-        print(ansi("|untagged union bytes| ", "38;5;210") ++ "{{\n", .{});
+        if (opts.shouldDumpType()) print(ansi("union ", "3;38;5;216"), .{});
+        print("{{\n", .{});
         printHex(std.mem.asBytes(&v), 8, opts.total_indent);
         print("{s}}}", .{pad(opts.total_indent -| opts.indent)});
         return;
@@ -182,7 +183,8 @@ fn dumpUnionOpts(v: anytype, u: std.builtin.Type.Union, opts: DumpOptions) void 
     const tag_name = @tagName(v);
     inline for (u.fields) |field| {
         if (std.mem.eql(u8, tag_name, field.name)) {
-            print(ansi("|tagged union|.{s} ", "38;5;211") ++ "{{\n{s}", .{ tag_name, pad(opts.total_indent) });
+            if (opts.shouldDumpType()) print(ansi(".{s} ", "3;38;5;153"), .{tag_name});
+            print("{{\n{s}", .{pad(opts.total_indent)});
             dumpOpts(@field(v, field.name), opts);
             print("{s}}}", .{pad(opts.total_indent -| opts.indent)});
             break;
@@ -201,7 +203,7 @@ fn pad(indent: usize) []const u8 {
     return SPACES[0..@min(indent, MAX_SPACES)];
 }
 
-fn matrixDim(a: std.builtin.Type.Array) ?usize {
+fn matrixDim(a: Type.Array) ?usize {
     if (std.meta.activeTag(@typeInfo(a.child)) != .float) return null;
     return switch (a.len) {
         4 => 2,
