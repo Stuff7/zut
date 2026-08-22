@@ -146,7 +146,7 @@ pub fn dumpOpts(v: anytype, opts: DumpOptions) void {
     switch (@typeInfo(T)) {
         .@"struct" => dumpStructOpts(v, o),
         .pointer => |p| if (p.size != .slice) print(ansi("*{0*}", "1;38;5;147"), .{v}) else dumpArrayOpts(v, o),
-        .array => dumpArrayOpts(v, o),
+        .array => |a| if (matrixDim(a)) |dim| dumpMatrix(dim, v, o) else dumpArrayOpts(v, o),
         .@"union" => |u| dumpUnionOpts(v, u, o),
         .int => dumpInt(T, v, o.dump_int_hex),
         .comptime_int => dumpInt(i64, v, o.dump_int_hex),
@@ -199,6 +199,48 @@ fn dumpInt(comptime T: type, v: T, dump_hex: bool) void {
 
 fn pad(indent: usize) []const u8 {
     return SPACES[0..@min(indent, MAX_SPACES)];
+}
+
+fn matrixDim(a: std.builtin.Type.Array) ?usize {
+    if (std.meta.activeTag(@typeInfo(a.child)) != .float) return null;
+    return switch (a.len) {
+        4 => 2,
+        9 => 3,
+        16 => 4,
+        else => null,
+    };
+}
+
+fn dumpMatrix(dim: usize, v: anytype, opts: DumpOptions) void {
+    const child = @typeInfo(@TypeOf(v)).array.child;
+    if (comptime std.meta.activeTag(@typeInfo(child)) != .float) {
+        dumpArrayOpts(v, opts);
+        return;
+    }
+
+    const N = @typeInfo(@TypeOf(v)).array.len;
+    var widths: [4]usize = @splat(0);
+    var lens: [N]usize = undefined;
+    var buf: [N][32]u8 = undefined;
+    for (0..dim) |row| {
+        for (0..dim) |col| {
+            const i = row * dim + col;
+            const s = std.fmt.bufPrint(&buf[i], "{d:.2}", .{v[i]}) catch unreachable;
+            lens[i] = s.len;
+            widths[col] = @max(widths[col], s.len);
+        }
+    }
+
+    print("[\n", .{});
+    for (0..dim) |row| {
+        print("{s}", .{pad(opts.total_indent)});
+        for (0..dim) |col| {
+            const i = row * dim + col;
+            print(ansi("{[s]s: >[w]}", "38;5;194") ++ "  ", .{ .s = buf[i][0..lens[i]], .w = widths[col] });
+        }
+        print("\n", .{});
+    }
+    print("{s}]", .{pad(opts.total_indent -| opts.indent)});
 }
 
 fn dumpArray(data: anytype) void {

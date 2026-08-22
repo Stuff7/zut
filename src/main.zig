@@ -116,4 +116,19 @@ pub const TestStruct = struct {
     raw: RawValue = .{ .i = 123 },
     payload: Payload = .{ .vec = .{ .x = 4, .y = 5, .z = 6 } },
     invalid_utf8: []const u8 = "\xff\xfe\x00bad",
+    mat2: [4]f32 = .{
+        1, 0,
+        0, 1,
+    },
+    mat3: [9]f32 = .{
+        1, 0, 0,
+        0, 1, 0,
+        0, 0, 1,
+    },
+    mat4: [16]f64 = .{
+        1, 0, 0, 0,
+        0, 1, 0, 0,
+        0, 0, 1, 0,
+        0, 0, 0, 1,
+    },
 };
