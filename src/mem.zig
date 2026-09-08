@@ -1,87 +1,19 @@
-const std = @import("std");
-
 pub fn repeat(T: type, comptime slice: []const T, comptime count: usize) []const T {
     comptime var ret: []const T = &.{};
     inline for (0..count) |_| ret = ret ++ slice;
     return ret;
 }
 
-pub fn intCast(I: type, i: anytype) I {
-    return @as(I, @intCast(i));
-}
-
-pub fn floatCast(F: type, f: anytype) F {
-    return @as(F, @floatCast(f));
-}
-
-pub fn asFloat(F: type, i: anytype) F {
-    return @as(F, @floatFromInt(i));
-}
-
-pub fn memOffset(T: type, mem: *u8, offset: usize) *T {
-    return @ptrFromInt(@intFromPtr(mem) + offset);
-}
-
-pub fn aligned(v: isize, alignment: isize) isize {
-    return (v + (alignment - 1)) & ~(alignment - 1);
-}
-
-pub fn enumMask(flag: anytype, bitmask: anytype) bool {
-    return mask(flag, @intFromEnum(bitmask));
-}
-
-pub fn mask(flag: anytype, bitmask: anytype) bool {
-    return (flag & bitmask) == bitmask;
-}
-
-pub fn sliceContainsPtr(T: type, container: []const T, ptr: [*]const T) bool {
-    return @intFromPtr(ptr) >= @intFromPtr(container.ptr) and
-        @intFromPtr(ptr) < (@intFromPtr(container.ptr) + container.len * @sizeOf(T));
-}
-
-pub fn packedSize(s: type) usize {
-    const fields = @typeInfo(s).@"struct".fields;
-    var size = 0;
-
-    inline for (fields) |field| {
-        size += @sizeOf(@FieldType(s, field.name));
-    }
-
-    return size;
-}
-
-pub fn packedWrite(s: anytype, w: *std.Io.Writer) !void {
-    const T = @TypeOf(s);
-    const fields = @typeInfo(T).@"struct".fields;
-
-    inline for (fields) |field| {
-        switch (@typeInfo(@FieldType(T, field.name))) {
-            .array => _ = try w.write(std.mem.sliceAsBytes(&@field(s, field.name))),
-            .pointer => |f| if (f.size == .slice) {
-                _ = try w.write(std.mem.sliceAsBytes(@field(s, field.name)));
-            },
-            else => _ = try w.write(std.mem.asBytes(&@field(s, field.name))),
-        }
-    }
-}
-
-pub fn packedRead(T: type, r: *std.Io.Reader, stop_field_name: ?[]const u8) !T {
-    var self: T = undefined;
-    const fields = @typeInfo(T).@"struct".fields;
-
-    inline for (fields) |field| {
-        if (stop_field_name != null and std.mem.eql(u8, field.name, stop_field_name.?)) {
-            break;
-        }
-
-        if (@typeInfo(@FieldType(T, field.name)) == .array) {
-            _ = try r.readSliceAll(std.mem.sliceAsBytes(&@field(self, field.name)));
-        } else {
-            _ = try r.readSliceAll(std.mem.asBytes(&@field(self, field.name)));
-        }
-    }
-
-    return self;
+pub inline fn isByteSlice(comptime T: type) bool {
+    return switch (@typeInfo(T)) {
+        .array => |info| info.child == u8,
+        .pointer => |info| switch (info.size) {
+            .slice => info.child == u8,
+            .one => @typeInfo(info.child) == .array and @typeInfo(info.child).array.child == u8,
+            else => false,
+        },
+        else => false,
+    };
 }
 
 /// A fixed-size ring buffer allocated on the stack that always overwrites oldest entries
@@ -101,7 +33,7 @@ pub fn RingBuffer(comptime T: type, comptime capacity: usize) type {
             return .{ .buffer = buffer };
         }
 
-        /// Push an item into the buffer, overwriting the oldest if at capacity
+        /// Overwrites the oldest if at capacity
         pub fn push(self: *Self, item: T) void {
             self.buffer[self.write_idx] = item;
             self.write_idx = (self.write_idx + 1) % capacity;
@@ -109,32 +41,25 @@ pub fn RingBuffer(comptime T: type, comptime capacity: usize) type {
             if (self.len < capacity) {
                 self.len += 1;
             } else {
-                // Buffer is full, advance read index to maintain window
                 self.read_idx = (self.read_idx + 1) % capacity;
             }
         }
 
         /// Get a reference to the newest item and advance the write index,
-        /// like pushing but without inserting a new element.
         pub fn extendLast(self: *Self) *T {
-            // slot to fill (this will become the newest element)
             const idx = self.write_idx;
 
             self.write_idx = (self.write_idx + 1) % capacity;
 
-            // if buffer was full, advancing write_idx collides with read_idx => drop oldest
             if (self.len == capacity) {
-                // buffer full: we keep len the same but advance read index to maintain window
                 self.read_idx = (self.read_idx + 1) % capacity;
             } else {
-                // not full yet, increasing length
                 self.len += 1;
             }
 
             return &self.buffer[idx];
         }
 
-        /// Pop an item from the buffer. Returns null if empty.
         pub fn pop(self: *Self) ?T {
             if (self.isEmpty()) return null;
 
@@ -145,13 +70,11 @@ pub fn RingBuffer(comptime T: type, comptime capacity: usize) type {
             return item;
         }
 
-        /// Peek at the oldest item without removing it
         pub fn peek(self: *const Self) ?T {
             if (self.isEmpty()) return null;
             return self.buffer[self.read_idx];
         }
 
-        /// Peek at the newest (most recently added) item
         pub fn peekNewest(self: *const Self) ?T {
             if (self.isEmpty()) return null;
             const idx = if (self.write_idx == 0) capacity - 1 else self.write_idx - 1;
@@ -168,13 +91,11 @@ pub fn RingBuffer(comptime T: type, comptime capacity: usize) type {
             self.len = 0;
         }
 
-        /// Get the maximum capacity of the buffer
         pub fn cap(self: *const Self) usize {
             _ = self;
             return capacity;
         }
 
-        /// Iterator for the ring buffer (oldest to newest)
         pub const Iterator = struct {
             ring: *Self,
             index: usize,
@@ -192,7 +113,7 @@ pub fn RingBuffer(comptime T: type, comptime capacity: usize) type {
             }
         };
 
-        /// Create an iterator starting from the oldest element
+        /// Iterates oldest to newest
         pub fn iterator(self: *Self) Iterator {
             return Iterator{
                 .ring = self,
@@ -201,7 +122,6 @@ pub fn RingBuffer(comptime T: type, comptime capacity: usize) type {
             };
         }
 
-        /// Get item at index (0 = oldest, len-1 = newest)
         pub fn at(self: *Self, index: usize) ?*T {
             if (index >= self.len) return null;
             const actual_idx = (self.read_idx + index) % capacity;
@@ -210,6 +130,7 @@ pub fn RingBuffer(comptime T: type, comptime capacity: usize) type {
     };
 }
 
+const std = @import("std");
 test "RingBuffer - initialization" {
     var ring = RingBuffer(u32, 5){};
     try std.testing.expect(ring.isEmpty());

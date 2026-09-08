@@ -1,13 +1,11 @@
 const std = @import("std");
 const mem = @import("mem.zig");
 
-pub fn isSpace(b: u8) bool {
-    return b == ' ' or b == '\t' or b == '\n' or b == '\r';
-}
-
-pub fn isPrintable(code_point: u32) bool {
-    return (code_point >= 0x20 and code_point != 0x7F) and
-        (code_point != 0x200B);
+pub fn isPrint(code_point: u32) bool {
+    return switch (code_point) {
+        0x20...0x7E, 0x80...0x200A, 0x200C...0x10FFFF => true,
+        else => false,
+    };
 }
 
 /// Returns the number of characters in a UTF-8 encoded buffer.
@@ -51,7 +49,7 @@ pub fn charLength(buf: []const u8) !usize {
             const is_regional = c >= 0x1F1E6 and c <= 0x1F1FF;
             const is_zwj = c == 0x200D;
 
-            if (isPrintable(c)) {
+            if (isPrint(c)) {
                 if (is_zwj) {
                     in_zwj_sequence = true;
                 } else if (is_regional and prev_was_regional) {
@@ -73,20 +71,6 @@ pub fn charLength(buf: []const u8) !usize {
     }
 
     return char_len;
-}
-
-pub fn decodeCodepoint(buf: []const u8) !u21 {
-    if (buf.len != try std.unicode.utf8ByteSequenceLength(buf[0])) {
-        return error.Utf8InvalidStartByte;
-    }
-
-    return switch (buf.len) {
-        1 => buf[0],
-        2 => try std.unicode.utf8Decode2(buf[0..2].*),
-        3 => try std.unicode.utf8Decode3(buf[0..3].*),
-        4 => try std.unicode.utf8Decode4(buf[0..4].*),
-        else => unreachable,
-    };
 }
 
 /// Given a codepoint returns a **bool** indicating if the character is
@@ -120,7 +104,7 @@ pub fn visualStringLength(str: []const u8) !usize {
 
 /// Given a **utf-8** character slice it returns it's *visual* length based on the **Unicode East Asian Width**
 pub fn charWidthFromSlice(slice: []const u8) !usize {
-    const codepoint = try decodeCodepoint(slice);
+    const codepoint = try std.unicode.utf8Decode(slice);
     return if (isWideChar(codepoint)) 2 else 1;
 }
 

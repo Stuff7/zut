@@ -2,7 +2,7 @@
     .name = .zut,
     .fingerprint = 0xa3070c02beefc2e5,
     .version = "1.0.0",
-    .minimum_zig_version = "0.16.0",
+    .minimum_zig_version = "0.17.0-dev.2056+79a9897cd",
     .paths = .{ "build.zig", "build.zig.zon", "src" },
     .dependencies = .{},
 }

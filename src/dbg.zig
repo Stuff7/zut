@@ -5,52 +5,9 @@ const ansi = utf8.ansi;
 const print = std.debug.print;
 
 const Type = std.builtin.Type;
-const SliceChild = zut.SliceChild;
 
 const MAX_SPACES = 64;
 const SPACES: [MAX_SPACES]u8 = @splat(' ');
-
-pub fn usage(name: []const u8, comptime options: anytype) void {
-    const fmt_options = comptime ret: {
-        var len = 0;
-        const Step = enum { calc_len, build_str };
-
-        for ([2]Step{ .calc_len, .build_str }) |step| {
-            var i = 0;
-            var p = 0;
-            var r: [len:0]u8 = undefined;
-
-            while (i + 1 < options.len) : (i += 2) {
-                const s = ansi(options[i], "1;38;5;225") ++ "\t" ++ ansi(options[i + 1] ++ "\n", "38;5;195");
-                switch (step) {
-                    .calc_len => len += s.len,
-                    .build_str => {
-                        @memcpy(r[p .. p + s.len], s);
-                        p += s.len;
-                    },
-                }
-            }
-
-            if (step == .build_str) {
-                break :ret r;
-            }
-        }
-    };
-
-    std.debug.print(ansi("Usage:", "1;38;5;220") ++ ansi(" {s}\n" ++ fmt_options ++ "\n", "38;5;156"), .{name});
-}
-
-pub fn info(comptime f: []const u8, args: anytype) void {
-    print(ansi(f, "1;38;5;230") ++ "\n", args);
-}
-
-pub fn warn(comptime f: []const u8, args: anytype) void {
-    print(ansi("Warning: ", "1;38;5;220") ++ ansi(f ++ "\n", "38;5;229"), args);
-}
-
-pub fn err(comptime f: []const u8, args: anytype) void {
-    print(ansi("Error: ", "1;38;5;210") ++ ansi(f ++ "\n", "38;5;217"), args);
-}
 
 pub const DumpOptions = struct {
     indent: usize = 2,
@@ -132,7 +89,7 @@ pub fn dumpOpts(v: anytype, opts: DumpOptions) void {
 
     var o = opts;
     o.total_indent += o.indent;
-    if (zut.isString(T)) {
+    if (zut.mem.isByteSlice(T)) {
         if (std.unicode.utf8ValidateSlice(v)) {
             print(ansi("\"{s}\"", "38;5;214"), .{v});
         } else {
@@ -181,11 +138,11 @@ fn dumpUnionOpts(v: anytype, u: Type.Union, opts: DumpOptions) void {
     }
 
     const tag_name = @tagName(v);
-    inline for (u.fields) |field| {
-        if (std.mem.eql(u8, tag_name, field.name)) {
+    inline for (u.field_names) |name| {
+        if (std.mem.eql(u8, tag_name, name)) {
             if (opts.shouldDumpType()) print(ansi(".{s} ", "3;38;5;153"), .{tag_name});
             print("{{\n{s}", .{pad(opts.total_indent)});
-            dumpOpts(@field(v, field.name), opts);
+            dumpOpts(@field(v, name), opts);
             print("{s}}}", .{pad(opts.total_indent -| opts.indent)});
             break;
         }
@@ -193,7 +150,7 @@ fn dumpUnionOpts(v: anytype, u: Type.Union, opts: DumpOptions) void {
 }
 
 fn dumpInt(comptime T: type, v: T, dump_hex: bool) void {
-    const U = std.meta.Int(.unsigned, @bitSizeOf(T));
+    const U = @Int(.unsigned, @bitSizeOf(T));
     const hexpad = std.fmt.comptimePrint("{d}", .{@min(@sizeOf(T) * 2, 4)});
     print(ansi("{}", "38;5;194"), .{v});
     if (dump_hex) print(" [" ++ ansi("0x{X:0>" ++ hexpad ++ "}", "38;5;192") ++ "]", .{@as(U, @bitCast(v))});
@@ -281,20 +238,20 @@ fn dumpStructOpts(data: anytype, opts: DumpOptions) void {
     const T = @TypeOf(data);
     const is_type = T == type;
     const VT = if (is_type) data else T;
-    const fields = @typeInfo(VT).@"struct".fields;
+    const type_info = @typeInfo(VT).@"struct";
 
     print("{{\n", .{});
     var o = opts;
     o.parsing_type = .@"struct";
-    inline for (fields) |field| {
-        const v = if (is_type) @FieldType(data, field.name) else @field(data, field.name);
+    inline for (type_info.field_names, type_info.field_attrs) |name, attr| {
+        const v = if (is_type) @FieldType(data, name) else @field(data, name);
         print("{s}", .{pad(o.total_indent)});
         if (o.dump_struct_field_offsets) {
             print(ansi(">{}|", "38;5;245"), .{
-                if (field.is_comptime) 0 else @offsetOf(VT, field.name),
+                if (attr.@"comptime") 0 else @offsetOf(VT, name),
             });
         }
-        print(ansi("{s}: ", "1"), .{field.name});
+        print(ansi("{s}: ", "1"), .{name});
         dumpOpts(v, o);
     }
     o.parsing_type = opts.parsing_type;
