@@ -53,14 +53,12 @@ const Item = struct {
     weight: f32,
 };
 
-// plain (untagged) union
 const RawValue = union {
     i: i32,
     f: f32,
     b: bool,
 };
 
-// tagged union
 const Payload = union(enum) {
     none,
     number: i64,

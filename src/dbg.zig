@@ -21,33 +21,26 @@ pub const DumpOptions = struct {
     dump_types: bool = true,
     dump_array_elem_types: bool = false,
     dump_struct_field_types: bool = true,
-    dump_sizes: bool = true,
+    dump_sizes: bool = false,
     dump_array_elem_sizes: bool = false,
-    dump_struct_field_sizes: bool = true,
-    dump_struct_field_offsets: bool = true,
-    dump_int_hex: bool = true,
+    dump_struct_field_sizes: bool = false,
+    dump_struct_field_offsets: bool = false,
+    dump_int_hex: bool = false,
     /// Set to negative for no limit
     max_array_items: isize = 10,
 
-    pub fn shouldDumpType(self: @This()) bool {
-        return switch (self.parsing_type) {
-            .primitive => self.dump_types,
-            .array => self.dump_array_elem_types,
-            .@"struct" => self.dump_struct_field_types,
-            .suppress => false,
-        };
-    }
+    pub const verbose = DumpOptions{
+        .dump_types = true,
+        .dump_array_elem_types = true,
+        .dump_struct_field_types = true,
+        .dump_sizes = true,
+        .dump_array_elem_sizes = true,
+        .dump_struct_field_sizes = true,
+        .dump_struct_field_offsets = true,
+        .dump_int_hex = true,
+    };
 
-    pub fn shouldDumpSize(self: @This()) bool {
-        return switch (self.parsing_type) {
-            .primitive => self.dump_sizes,
-            .array => self.dump_array_elem_sizes,
-            .@"struct" => self.dump_struct_field_sizes,
-            .suppress => false,
-        };
-    }
-
-    pub const minimal = @This(){
+    pub const minimal = DumpOptions{
         .dump_types = true,
         .dump_array_elem_types = false,
         .dump_struct_field_types = false,
@@ -58,16 +51,23 @@ pub const DumpOptions = struct {
         .dump_int_hex = false,
     };
 
-    pub const verbose = @This(){
-        .dump_types = true,
-        .dump_array_elem_types = true,
-        .dump_struct_field_types = true,
-        .dump_sizes = true,
-        .dump_array_elem_sizes = true,
-        .dump_struct_field_sizes = true,
-        .dump_struct_field_offsets = true,
-        .dump_int_hex = true,
-    };
+    pub fn shouldDumpType(self: DumpOptions) bool {
+        return switch (self.parsing_type) {
+            .primitive => self.dump_types,
+            .array => self.dump_array_elem_types,
+            .@"struct" => self.dump_struct_field_types,
+            .suppress => false,
+        };
+    }
+
+    pub fn shouldDumpSize(self: DumpOptions) bool {
+        return switch (self.parsing_type) {
+            .primitive => self.dump_sizes,
+            .array => self.dump_array_elem_sizes,
+            .@"struct" => self.dump_struct_field_sizes,
+            .suppress => false,
+        };
+    }
 };
 
 pub fn dump(v: anytype) void {
@@ -136,7 +136,6 @@ fn writeDumpOptionalOpts(w: *Writer, v: anytype, opts: DumpOptions) Writer.Error
         var o = opts;
         o.parsing_type = .suppress;
         try writeDumpOpts(w, v.?, o);
-        o.parsing_type = opts.parsing_type;
         return;
     }
     try w.print(ansi("null", "38;5;250"), .{});
@@ -144,7 +143,7 @@ fn writeDumpOptionalOpts(w: *Writer, v: anytype, opts: DumpOptions) Writer.Error
 
 fn writeDumpUnionOpts(w: *Writer, v: anytype, u: Type.Union, opts: DumpOptions) Writer.Error!void {
     if (u.tag_type == null) {
-        if (opts.shouldDumpType()) try w.print(ansi("union ", "3;38;5;216"), .{});
+        try w.print(ansi("union ", "3;38;5;216"), .{});
         try w.print("{{\n", .{});
         try printHex(w, std.mem.asBytes(&v), 8, opts.total_indent);
         try w.print("{s}}}", .{pad(opts.total_indent -| opts.indent)});
@@ -154,7 +153,7 @@ fn writeDumpUnionOpts(w: *Writer, v: anytype, u: Type.Union, opts: DumpOptions) 
     const tag_name = @tagName(v);
     inline for (u.field_names) |name| {
         if (std.mem.eql(u8, tag_name, name)) {
-            if (opts.shouldDumpType()) try w.print(ansi(".{s} ", "3;38;5;153"), .{tag_name});
+            try w.print(ansi(".{s} ", "3;38;5;153"), .{tag_name});
             try w.print("{{\n{s}", .{pad(opts.total_indent)});
             try writeDumpOpts(w, @field(v, name), opts);
             try w.print("{s}}}", .{pad(opts.total_indent -| opts.indent)});
@@ -235,7 +234,6 @@ fn writeDumpArrayOpts(w: *Writer, data: anytype, opts: DumpOptions) Writer.Error
             try writeDumpOpts(w, data[i], o);
         }
     }
-    o.parsing_type = opts.parsing_type;
 
     try w.print("{s}]", .{pad(o.total_indent -| o.indent)});
 }
@@ -260,7 +258,6 @@ fn writeDumpStructOpts(w: *Writer, data: anytype, opts: DumpOptions) Writer.Erro
         try w.print(ansi("{s}: ", "1"), .{name});
         try writeDumpOpts(w, v, o);
     }
-    o.parsing_type = opts.parsing_type;
     try w.print("{s}}}", .{pad(o.total_indent -| o.indent)});
 }
 
