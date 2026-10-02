@@ -18,53 +18,61 @@ pub const DumpOptions = struct {
         @"struct",
         suppress,
     } = .primitive,
-    dump_types: bool = true,
-    dump_array_elem_types: bool = false,
-    dump_struct_field_types: bool = true,
-    dump_sizes: bool = false,
-    dump_array_elem_sizes: bool = false,
-    dump_struct_field_sizes: bool = false,
-    dump_struct_field_offsets: bool = false,
-    dump_int_hex: bool = false,
+    /// Dump var types
+    types: bool = true,
+    /// Dump array element types
+    elem_types: bool = false,
+    /// Dump struct field types
+    field_types: bool = true,
+    /// Dump var sizes
+    sizes: bool = false,
+    /// Dump array element sizes
+    elem_sizes: bool = false,
+    /// Dump struct field sizes
+    field_sizes: bool = false,
+    /// Dump struct field offsets
+    field_offsets: bool = false,
+    /// Dump int in hexadecimal
+    int_hex: bool = false,
     /// Set to negative for no limit
     max_array_items: isize = 10,
 
     pub const verbose = DumpOptions{
-        .dump_types = true,
-        .dump_array_elem_types = true,
-        .dump_struct_field_types = true,
-        .dump_sizes = true,
-        .dump_array_elem_sizes = true,
-        .dump_struct_field_sizes = true,
-        .dump_struct_field_offsets = true,
-        .dump_int_hex = true,
+        .types = true,
+        .elem_types = true,
+        .field_types = true,
+        .sizes = true,
+        .elem_sizes = true,
+        .field_sizes = true,
+        .field_offsets = true,
+        .int_hex = true,
     };
 
     pub const minimal = DumpOptions{
-        .dump_types = true,
-        .dump_array_elem_types = false,
-        .dump_struct_field_types = false,
-        .dump_sizes = false,
-        .dump_array_elem_sizes = false,
-        .dump_struct_field_sizes = false,
-        .dump_struct_field_offsets = false,
-        .dump_int_hex = false,
+        .types = true,
+        .elem_types = false,
+        .field_types = false,
+        .sizes = false,
+        .elem_sizes = false,
+        .field_sizes = false,
+        .field_offsets = false,
+        .int_hex = false,
     };
 
     pub fn shouldDumpType(self: DumpOptions) bool {
         return switch (self.parsing_type) {
-            .primitive => self.dump_types,
-            .array => self.dump_array_elem_types,
-            .@"struct" => self.dump_struct_field_types,
+            .primitive => self.types,
+            .array => self.elem_types,
+            .@"struct" => self.field_types,
             .suppress => false,
         };
     }
 
     pub fn shouldDumpSize(self: DumpOptions) bool {
         return switch (self.parsing_type) {
-            .primitive => self.dump_sizes,
-            .array => self.dump_array_elem_sizes,
-            .@"struct" => self.dump_struct_field_sizes,
+            .primitive => self.sizes,
+            .array => self.elem_sizes,
+            .@"struct" => self.field_sizes,
             .suppress => false,
         };
     }
@@ -119,8 +127,8 @@ pub fn writeDumpOpts(w: *Writer, v: anytype, opts: DumpOptions) Writer.Error!voi
         .pointer => |p| if (p.size != .slice) try w.print(ansi("*{0*}", "1;38;5;147"), .{v}) else try writeDumpArrayOpts(w, v, o),
         .array => |a| if (matrixDim(a)) |dim| try writeDumpMatrix(w, dim, v, o) else try writeDumpArrayOpts(w, v, o),
         .@"union" => |u| try writeDumpUnionOpts(w, v, u, o),
-        .int => try writeDumpInt(w, T, v, o.dump_int_hex),
-        .comptime_int => try writeDumpInt(w, i64, v, o.dump_int_hex),
+        .int => try writeDumpInt(w, T, v, o.int_hex),
+        .comptime_int => try writeDumpInt(w, i64, v, o.int_hex),
         .float => try w.print(ansi("{d:.4}", "38;5;194"), .{v}),
         .comptime_float => try w.print(ansi("{d:.4}", "38;5;194"), .{v}),
         .optional => try writeDumpOptionalOpts(w, v, o),
@@ -250,7 +258,7 @@ fn writeDumpStructOpts(w: *Writer, data: anytype, opts: DumpOptions) Writer.Erro
     inline for (type_info.field_names, type_info.field_attrs) |name, attr| {
         const v = if (is_type) @FieldType(data, name) else @field(data, name);
         try w.print("{s}", .{pad(o.total_indent)});
-        if (o.dump_struct_field_offsets) {
+        if (o.field_offsets) {
             try w.print(ansi(">{}|", "38;5;245"), .{
                 if (attr.@"comptime") 0 else @offsetOf(VT, name),
             });
