@@ -4,7 +4,7 @@ pub fn build(b: *std.Build) void {
     const NAME = "zut";
 
     const target = b.standardTargetOptions(.{});
-    const optimize = b.standardOptimizeOption(.{});
+    const optimize = b.standardOptimizeOption(.{}) orelse .debug;
 
     const lib_module = b.addModule(NAME, .{ .root_source_file = b.path("src/zut.zig"), .target = target });
     const main_module = b.createModule(.{
